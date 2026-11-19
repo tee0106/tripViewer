@@ -4,6 +4,10 @@
 
 每人用 Gmail 登入後，只看得到自己建立的方案。兩個人貼同一個試算表連結，會各自有一份，置頂和置底不會互相影響。
 
+<p align="center">
+<img width="256" height="521" alt="Screenshot_2026-11-20-02-19-58-073_com android chrome-edit" src="https://github.com/user-attachments/assets/26215e21-af7d-42f1-b180-e034f8e58ae9" />
+</p>
+
 ## 為什麼這樣最省
 
 - 網頁是靜態檔，放在 Cloudflare Pages 免費版，沒有自己的伺服器。
