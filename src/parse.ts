@@ -1,4 +1,4 @@
-import type { Cell, ColKind, Item, Placement } from './types'
+import type { Cell, ColKind, Item, Placement, RichCell, TextSegment } from './types'
 
 const NOT_PLACE = /^(集合|解散|參觀|逛街|購物|午餐|晚餐|早餐|宵夜|自由活動|休息|移動|返回|入住|退房)$/i
 const ACTIVITY = /早餐|午餐|晚餐|宵夜|集合|解散|移動|返回|入住|退房|自由活動|休息|出發|抵達|前往|搭乘|步行|開車|參觀|逛街|購物|check-?in|check-?out|lunch|dinner|breakfast|transfer/i
@@ -21,7 +21,7 @@ export function mapsQuery(kind: ColKind, value: string): string | null {
   if (/^https?:\/\//i.test(t) || /^\d{1,2}:\d{2}/.test(t) || /^[\d\s.,:+\-/¥$￥元]+$/.test(t)) return null
   if (NOT_PLACE.test(t)) return null
   if (kind === 'place') return t.length <= 80 ? t : null
-  if (t.length < 2 || t.length > 24 || /[。！？!?]/.test(t) || /[，,]/.test(t) || ACTIVITY.test(t)) return null
+  if (t.length < 2 || t.length > 50 || /[。！？!?]/.test(t) || /[，,]/.test(t) || ACTIVITY.test(t)) return null
   if (!/[\p{Script=Han}A-Za-z]/u.test(t)) return null
   return t
 }
@@ -32,7 +32,31 @@ function hash(s: string) {
   return (h >>> 0).toString(36)
 }
 
-export function parseItems(headers: string[], rows: string[][]): Item[] {
+function normalizeRichCell(rawCell: RichCell | undefined): { value: string; segments?: TextSegment[] } {
+  const list = Array.isArray(rawCell) ? rawCell : []
+  const cleanedSegments = list
+    .map((seg) => ({
+      text: String(seg?.text ?? '').replace(/\u00a0/g, ' '),
+      ...(seg?.url ? { url: seg.url } : {}),
+    }))
+    .filter((seg) => seg.text.length > 0)
+
+  if (cleanedSegments.length > 0) {
+    cleanedSegments[0].text = cleanedSegments[0].text.replace(/^\s+/, '')
+    cleanedSegments[cleanedSegments.length - 1].text = cleanedSegments[cleanedSegments.length - 1].text.replace(/\s+$/, '')
+  }
+
+  const nonEmptySegments = cleanedSegments.filter((seg) => seg.text.length > 0)
+  const value = nonEmptySegments.map((seg) => seg.text).join('').trim()
+  const hasLink = nonEmptySegments.some((seg) => Boolean(seg.url))
+
+  return {
+    value,
+    segments: hasLink ? nonEmptySegments : undefined,
+  }
+}
+
+export function parseItems(headers: string[], rows: RichCell[][]): Item[] {
   let seenDate = false
   const kinds = headers.map((header) => {
     let kind = kindOf(header)
@@ -47,21 +71,33 @@ export function parseItems(headers: string[], rows: string[][]): Item[] {
   const items: Item[] = []
   const seen = new Map<string, number>()
   let day = ''
+
   for (const row of rows) {
-    const cells = headers.map((_, i) => (row[i] ?? '').replace(/\u00a0/g, ' ').trim())
-    if (cells.every((value) => !value)) continue
-    if (dateIdx >= 0 && cells[dateIdx]) day = cells[dateIdx]
+    const safeRow = Array.isArray(row) ? row : []
+    const parsedCells = headers.map((_, i) => normalizeRichCell(safeRow[i]))
+    const values = parsedCells.map((c) => c.value)
+
+    if (values.every((value) => !value)) continue
+    if (dateIdx >= 0 && values[dateIdx]) day = values[dateIdx]
+
     const hasContent = contentIdx.length
-      ? contentIdx.some((i) => cells[i])
-      : cells.some((value, i) => value && kinds[i] !== 'date')
+      ? contentIdx.some((i) => values[i])
+      : values.some((value, i) => value && kinds[i] !== 'date')
     if (!hasContent) continue
-    const base = hash(`${day}\u001f${cells.join('\u001f')}`)
+
+    const base = hash(`${day}\u001f${values.join('\u001f')}`)
     const n = seen.get(base) ?? 0
     seen.set(base, n + 1)
+
     items.push({
       id: n ? `${base}_${n}` : base,
       day,
-      cells: headers.map((header, i) => ({ header: header.trim(), kind: kinds[i], value: cells[i] ?? '' })),
+      cells: headers.map((header, i) => ({
+        header: header.trim(),
+        kind: kinds[i],
+        value: parsedCells[i].value,
+        ...(parsedCells[i].segments ? { segments: parsedCells[i].segments } : {}),
+      })),
     })
   }
   return items

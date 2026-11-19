@@ -1,6 +1,8 @@
 export type Lang = 'zh' | 'en'
 export type ColKind = 'date' | 'time' | 'place' | 'event' | 'note' | 'meta' | 'other'
-export type Cell = { header: string; kind: ColKind; value: string }
+export type TextSegment = { text: string; url?: string }
+export type RichCell = TextSegment[]
+export type Cell = { header: string; kind: ColKind; value: string; segments?: TextSegment[] }
 export type Item = { id: string; day: string; cells: Cell[] }
 export type Placement = Record<string, { pos: 'top' | 'bottom'; at: number }>
 export type Plan = {

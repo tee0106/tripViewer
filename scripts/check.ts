@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { demoPlan } from '../src/demo.ts'
 import { itemMatches, mapsQuery, orderItems, parseItems, visibleCells } from '../src/parse.ts'
+import type { RichCell } from '../src/types.ts'
 
 assert.equal(demoPlan.items.length, 6)
 assert.equal(demoPlan.items.filter((item) => item.day === '11/20').length, 4)
@@ -33,16 +34,16 @@ const top = orderItems(demoPlan.items, {
 assert.equal(top[0].id, yasaka.id)
 assert.equal(top[1].id, kiyomi.id)
 
-const skipped = parseItems(['日期', '地點', '備註'], [['5/1', '', ''], ['', '', '只有備註'], ['', '美術館', '']])
+const skipped = parseItems(['日期', '地點', '備註'], [[{ text: '5/1' } as unknown as RichCell, { text: '' } as unknown as RichCell, { text: '' } as unknown as RichCell], [{ text: '' } as unknown as RichCell, { text: '' } as unknown as RichCell, { text: '只有備註' } as unknown as RichCell], [{ text: '' } as unknown as RichCell, { text: '美術館' } as unknown as RichCell, { text: '' } as unknown as RichCell]])
 assert.equal(skipped.length, 1)
 assert.equal(skipped[0].day, '5/1')
 assert.equal(skipped[0].cells.find((cell) => cell.kind === 'place')?.value, '美術館')
 
-const early = parseItems(['日期', '地點'], [['', '機場'], ['5/2', '美術館']])
+const early = parseItems(['日期', '地點'], [[{ text: '' } as unknown as RichCell, { text: '機場' } as unknown as RichCell], [{ text: '5/2' } as unknown as RichCell, { text: '美術館' } as unknown as RichCell]])
 assert.equal(early[0].day, '')
 assert.equal(early[1].day, '5/2')
 
-const dups = parseItems(['地點'], [['車站'], ['車站']])
+const dups = parseItems(['地點'], [[{ text: '車站' } as unknown as RichCell], [{ text: '車站' } as unknown as RichCell]])
 assert.equal(dups.length, 2)
 assert.notEqual(dups[0].id, dups[1].id)
 

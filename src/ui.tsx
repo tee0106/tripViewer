@@ -3,7 +3,12 @@ import { copy, type Copy } from './i18n'
 import { itemMatches, mapsQuery, orderItems, visibleCells } from './parse'
 import type { Draft, Item, Lang, Plan } from './types'
 
-function RichText({ text }: { text: string }) {
+export interface TextSegment {
+  text: string
+  url?: string
+}
+
+function renderPlainWithUrls(text: string): ReactNode[] {
   const re = /https?:\/\/[^\s<>]+/g
   const nodes: ReactNode[] = []
   let last = 0
@@ -18,7 +23,27 @@ function RichText({ text }: { text: string }) {
     last = match.index + match[0].length
   }
   if (last < text.length) nodes.push(text.slice(last))
-  return <>{nodes}</>
+  return nodes
+}
+
+function RichText({ text, segments }: { text: string; segments?: TextSegment[] }) {
+  if (segments && segments.length > 0) {
+    return (
+      <>
+        {segments.map((seg, idx) =>
+          seg.url ? (
+            <a key={idx} href={seg.url} target="_blank" rel="noreferrer">
+              {seg.text}
+            </a>
+          ) : (
+            <span key={idx}>{renderPlainWithUrls(seg.text)}</span>
+          ),
+        )}
+      </>
+    )
+  }
+
+  return <>{renderPlainWithUrls(text)}</>
 }
 
 function MapIcon() {
@@ -154,7 +179,7 @@ function CardView({ item, pinned, s, onMove }: { item: Item; pinned: boolean; s:
           <div className={'field ' + cell.kind} key={i}>
             {cell.header ? <span className="k">{cell.header}</span> : null}
             <span className="v">
-              <RichText text={cell.value} />
+              <RichText text={cell.value} segments={cell.segments} />
               {query && (
                 <a className="map" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`} target="_blank" rel="noreferrer" aria-label={s.map} title={s.map}>
                   <MapIcon />
