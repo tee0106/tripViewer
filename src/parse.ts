@@ -21,7 +21,7 @@ export function mapsQuery(kind: ColKind, value: string): string | null {
   if (/^https?:\/\//i.test(t) || /^\d{1,2}:\d{2}/.test(t) || /^[\d\s.,:+\-/¥$￥元]+$/.test(t)) return null
   if (NOT_PLACE.test(t)) return null
   if (kind === 'place') return t.length <= 80 ? t : null
-  if (t.length < 2 || t.length > 24 || /[。！？!?]/.test(t) || /[，,]/.test(t) || ACTIVITY.test(t)) return null
+  if (t.length < 2 || t.length > 50 || /[。！？!?]/.test(t) || /[，,]/.test(t) || ACTIVITY.test(t)) return null
   if (!/[\p{Script=Han}A-Za-z]/u.test(t)) return null
   return t
 }
