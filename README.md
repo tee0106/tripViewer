@@ -8,15 +8,6 @@
 <img width="256" height="521" alt="Screenshot_2026-11-20-02-19-58-073_com android chrome-edit" src="https://github.com/user-attachments/assets/26215e21-af7d-42f1-b180-e034f8e58ae9" />
 </p>
 
-## 為什麼這樣最省
-
-- 網頁是靜態檔，放在 Cloudflare Pages 免費版，沒有自己的伺服器。
-- Firebase 免費版只負責 Google 登入和儲存方案。試算表仍在 Google 雲端硬碟，這個網站不修改它。
-- 地圖按鈕是免費的 Google 地圖搜尋連結，不開啟要綁信用卡的 Geocoding。
-- 不使用 Gemini。地點按鈕依欄位名稱和文字規則判斷。
-
-Firebase 網頁金鑰會出現在打包後的程式裡，這是 Firebase 的正常做法。真正擋住別人的是 Firestore 規則：每個人只能讀寫自己的方案。
-
 ## 試算表怎麼排
 
 只讀**第一個工作表**，**第一列是欄位名稱**。連結若指到第二個分頁，仍會讀第一個。
