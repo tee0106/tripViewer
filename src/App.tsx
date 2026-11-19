@@ -23,6 +23,19 @@ function asPlan(id: string, data: Record<string, unknown>): Plan {
   }
 }
 
+function maskEmail(email: string | null) {
+  if (!email || !email.includes('@')) return email || '';
+
+  const [localPart, domain] = email.split('@');
+  if (localPart.length <= 3) {
+    return `${localPart}@${domain}`;
+  }
+
+  const visible = localPart.slice(0, 3);
+  const masked = '*'.repeat(localPart.length - 3);
+  return `${visible}${masked}@${domain}`;
+}
+
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => (localStorage.getItem('tv_lang') === 'en' ? 'en' : 'zh'))
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
@@ -176,7 +189,7 @@ export default function App() {
         <div className="wrap bar">
           {!user && !demo ? <h1 className="brand">{brand}</h1> : <button className="brand" type="button" onClick={home}>{brand}</button>}
           <div className="pills">
-            {user && <span className="who">{user.email}</span>}
+            {user && <span className="who">{maskEmail(user.email)}</span>}
             {user && <button className="textbtn" type="button" onClick={() => void logOut()}>{s.signOut}</button>}
             <button className="textbtn" type="button" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}>{s.lang}</button>
             <button className="textbtn" type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? s.toLight : s.toDark}</button>
