@@ -1,5 +1,5 @@
 import { parseItems } from './parse'
-import type { Plan } from './types'
+import type { Plan, RichCell } from './types'
 
 export const demoHeaders = ['日期', '時間', '地點', '事件', '備註', '費用']
 export const demoRows = [
@@ -19,6 +19,6 @@ export const demoPlan: Plan = {
   sheetUrl: '',
   spreadsheetId: '',
   placement: {},
-  items: parseItems(demoHeaders, demoRows),
+  items: parseItems(demoHeaders, demoRows.map(row => row.map(cell => ({ text: cell } as unknown as RichCell)))),
   fetchedAt: 0,
 }

@@ -1,6 +1,41 @@
 import { SheetError } from './errors'
 import { TOKEN_KEY, googleToken } from './firebase'
 
+export interface TextSegment {
+  text: string
+  url?: string
+}
+
+export type RichCell = TextSegment[]
+
+interface TextFormatRun {
+  startIndex?: number
+  format?: {
+    link?: {
+      uri?: string
+    }
+  }
+}
+
+interface CellData {
+  formattedValue?: string
+  hyperlink?: string
+  textFormatRuns?: TextFormatRun[]
+}
+
+interface SheetResponse {
+  sheets?: {
+    properties?: { title?: string }
+    data?: {
+      rowData?: {
+        values?: CellData[]
+      }[]
+    }[]
+  }[]
+  values?: unknown[][]
+  error?: { message?: string; status?: string }
+}
+
 export function spreadsheetId(input: string): string | null {
   const text = input.trim()
   const match = text.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
@@ -13,16 +48,56 @@ function rangeOf(title: string) {
   return encodeURIComponent(`'${title.replace(/'/g, "''")}'`)
 }
 
-async function getJson(url: string, token: string) {
+function normalizeSpaces(raw: string): string {
+  return raw.replace(/\u00a0/g, ' ')
+}
+
+function trimEdgeSegments(segments: TextSegment[]): TextSegment[] {
+  const out = segments.map((seg) => ({ ...seg, text: normalizeSpaces(seg.text) }))
+  if (out.length > 0) {
+    out[0].text = out[0].text.replace(/^\s+/, '')
+    out[out.length - 1].text = out[out.length - 1].text.replace(/\s+$/, '')
+  }
+  return out.filter((seg) => seg.text.length > 0)
+}
+
+function parseCell(cell?: CellData): RichCell {
+  if (!cell) return []
+
+  const fullText = String(cell.formattedValue ?? '')
+  if (!fullText) return []
+
+  const runs = Array.isArray(cell.textFormatRuns) ? cell.textFormatRuns : []
+
+  if (runs.length === 0) {
+    return trimEdgeSegments([{ text: fullText, url: cell.hyperlink || undefined }])
+  }
+
+  const segments: TextSegment[] = []
+  for (let i = 0; i < runs.length; i++) {
+    const startIndex = runs[i].startIndex ?? 0
+    const endIndex = i + 1 < runs.length ? (runs[i + 1].startIndex ?? fullText.length) : fullText.length
+
+    if (i === 0 && startIndex > 0) {
+      segments.push({ text: fullText.slice(0, startIndex) })
+    }
+
+    const url = runs[i].format?.link?.uri || undefined
+    segments.push({
+      text: fullText.slice(startIndex, endIndex),
+      url,
+    })
+  }
+
+  return trimEdgeSegments(segments)
+}
+
+async function getJson(url: string, token: string): Promise<SheetResponse> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 20000)
   try {
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal })
-    const body = (await res.json().catch(() => ({}))) as {
-      sheets?: { properties?: { title?: string } }[]
-      values?: unknown[][]
-      error?: { message?: string; status?: string }
-    }
+    const body = (await res.json().catch(() => ({}))) as SheetResponse
     if (res.ok) return body
     const msg = body.error?.message || ''
     const status = body.error?.status || ''
@@ -44,14 +119,24 @@ export async function fetchFirstSheet(token: string, id: string) {
   const meta = await getJson(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties.title`, token)
   const title = meta.sheets?.[0]?.properties?.title
   if (!title) throw new SheetError('missing')
+
+  const fields = encodeURIComponent('sheets.data.rowData.values(formattedValue,hyperlink,textFormatRuns)')
   const data = await getJson(
-    `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${rangeOf(title)}?valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${id}?ranges=${rangeOf(title)}&includeGridData=true&fields=${fields}`,
     token,
   )
-  const values = data.values || []
-  if (!values.length) return { headers: [] as string[], rows: [] as string[][] }
-  const table = values.map((row) => (Array.isArray(row) ? row : []).map((cell) => String(cell ?? '').replace(/\u00a0/g, ' ').trim()))
-  return { headers: table[0], rows: table.slice(1) }
+
+  const rowData = data.sheets?.[0]?.data?.[0]?.rowData || []
+  if (!rowData.length) return { headers: [] as string[], rows: [] as RichCell[][] }
+
+  const table: RichCell[][] = rowData.map((row) =>
+    (Array.isArray(row?.values) ? row.values : []).map(parseCell),
+  )
+
+  const headers = (table[0] || []).map((cell) => cell.map((seg) => seg.text).join(' ').trim())
+  const rows = table.slice(1)
+
+  return { headers, rows }
 }
 
 export async function withSheet<T>(run: (token: string) => Promise<T>) {
