@@ -24,16 +24,11 @@ function asPlan(id: string, data: Record<string, unknown>): Plan {
 }
 
 function maskEmail(email: string | null) {
-  if (!email || !email.includes('@')) return email || '';
+  if (!email || !email.includes('@')) return email || ''
 
-  const [localPart, domain] = email.split('@');
-  if (localPart.length <= 3) {
-    return `${localPart}@${domain}`;
-  }
-
-  const visible = localPart.slice(0, 3);
-  const masked = '*'.repeat(localPart.length - 3);
-  return `${visible}${masked}@${domain}`;
+  const [localPart, domain] = email.split('@')
+  const visible = localPart.slice(0, 3)
+  return `${visible}******@${domain}`
 }
 
 export default function App() {
